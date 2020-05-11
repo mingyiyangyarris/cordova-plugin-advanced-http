@@ -16,6 +16,8 @@ package com.silkimen.http;
  * limitations under the License.
  */
 
+import android.os.Build;
+
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -53,9 +55,11 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSocketFactory;
+
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Dispatcher;
@@ -99,13 +103,17 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
 
     static final int HTTP_CONTINUE = 100;
 
-    static final ThreadLocal<DateFormat> STANDARD_DATE_FORMAT = ThreadLocal.withInitial(() -> {
-        // Date format specified by RFC 7231 section 7.1.1.1.
-        DateFormat rfc1123 = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", Locale.US);
-        rfc1123.setLenient(false);
-        rfc1123.setTimeZone(UTC);
-        return rfc1123;
-    });
+    static final ThreadLocal<DateFormat> STANDARD_DATE_FORMAT =
+        new ThreadLocal<DateFormat>() {
+            @Override
+            protected DateFormat initialValue() {
+                // Date format specified by RFC 7231 section 7.1.1.1.
+                DateFormat rfc1123 = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", Locale.US);
+                rfc1123.setLenient(false);
+                rfc1123.setTimeZone(UTC);
+                return rfc1123;
+            }
+        };
 
     static final Comparator<String> FIELD_NAME_COMPARATOR = (a, b) -> {
         // @FindBugsSuppressWarnings("ES_COMPARING_PARAMETER_STRING_WITH_EQ")
@@ -139,7 +147,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
      * Returns a copy of this stream handler factory that includes a shallow copy of the internal
      * {@linkplain OkHttpClient HTTP client}.
      */
-    @Override public ObsoleteUrlFactory clone() {
+    @Override
+    public ObsoleteUrlFactory clone() {
         return new ObsoleteUrlFactory(client);
     }
 
@@ -168,19 +177,23 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
      *   URL.setURLStreamHandlerFactory(new ObsoleteUrlFactory(okHttpClient));
      * }</pre>
      */
-    @Override public URLStreamHandler createURLStreamHandler(final String protocol) {
+    @Override
+    public URLStreamHandler createURLStreamHandler(final String protocol) {
         if (!protocol.equals("http") && !protocol.equals("https")) return null;
 
         return new URLStreamHandler() {
-            @Override protected URLConnection openConnection(URL url) {
+            @Override
+            protected URLConnection openConnection(URL url) {
                 return open(url);
             }
 
-            @Override protected URLConnection openConnection(URL url, Proxy proxy) {
+            @Override
+            protected URLConnection openConnection(URL url, Proxy proxy) {
                 return open(url, proxy);
             }
 
-            @Override protected int getDefaultPort() {
+            @Override
+            protected int getDefaultPort() {
                 if (protocol.equals("http")) return 80;
                 if (protocol.equals("https")) return 443;
                 throw new AssertionError();
@@ -196,7 +209,9 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
         return !(method.equals("GET") || method.equals("HEAD"));
     }
 
-    /** Returns true if the response must have a (possibly 0-length) body. See RFC 7231. */
+    /**
+     * Returns true if the response must have a (possibly 0-length) body. See RFC 7231.
+     */
     static boolean hasBody(Response response) {
         // HEAD requests never yield a body regardless of the response headers.
         if (response.request().method().equals("HEAD")) {
@@ -315,7 +330,9 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
         boolean executed;
         Call call;
 
-        /** Like the superclass field of the same name, but a long and available on all platforms. */
+        /**
+         * Like the superclass field of the same name, but a long and available on all platforms.
+         */
         long fixedContentLength = -1L;
 
         // These fields are guarded by lock.
@@ -332,7 +349,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             this.client = client;
         }
 
-        @Override public void connect() throws IOException {
+        @Override
+        public void connect() throws IOException {
             if (executed) return;
 
             Call call = buildCall();
@@ -354,7 +372,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             }
         }
 
-        @Override public void disconnect() {
+        @Override
+        public void disconnect() {
             // Calling disconnect() before a connection exists should have no effect.
             if (call == null) return;
 
@@ -362,7 +381,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             call.cancel();
         }
 
-        @Override public InputStream getErrorStream() {
+        @Override
+        public InputStream getErrorStream() {
             try {
                 Response response = getResponse(true);
                 if (hasBody(response) && response.code() >= HTTP_BAD_REQUEST) {
@@ -386,7 +406,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             return responseHeaders;
         }
 
-        @Override public String getHeaderField(int position) {
+        @Override
+        public String getHeaderField(int position) {
             try {
                 Headers headers = getHeaders();
                 if (position < 0 || position >= headers.size()) return null;
@@ -396,7 +417,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             }
         }
 
-        @Override public String getHeaderField(String fieldName) {
+        @Override
+        public String getHeaderField(String fieldName) {
             try {
                 return fieldName == null
                         ? statusLineToString(getResponse(true))
@@ -406,7 +428,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             }
         }
 
-        @Override public String getHeaderFieldKey(int position) {
+        @Override
+        public String getHeaderFieldKey(int position) {
             try {
                 Headers headers = getHeaders();
                 if (position < 0 || position >= headers.size()) return null;
@@ -416,7 +439,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             }
         }
 
-        @Override public Map<String, List<String>> getHeaderFields() {
+        @Override
+        public Map<String, List<String>> getHeaderFields() {
             try {
                 return toMultimap(getHeaders(), statusLineToString(getResponse(true)));
             } catch (IOException e) {
@@ -424,7 +448,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             }
         }
 
-        @Override public Map<String, List<String>> getRequestProperties() {
+        @Override
+        public Map<String, List<String>> getRequestProperties() {
             if (connected) {
                 throw new IllegalStateException(
                         "Cannot access request header fields after connection is set");
@@ -433,17 +458,20 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             return toMultimap(requestHeaders.build(), null);
         }
 
-        @Override public InputStream getInputStream() throws IOException {
+        @Override
+        public InputStream getInputStream() throws IOException {
             if (!doInput) {
                 throw new ProtocolException("This protocol does not support input");
             }
 
             Response response = getResponse(false);
-            if (response.code() >= HTTP_BAD_REQUEST) throw new FileNotFoundException(url.toString());
+            if (response.code() >= HTTP_BAD_REQUEST)
+                throw new FileNotFoundException(url.toString());
             return response.body().byteStream();
         }
 
-        @Override public OutputStream getOutputStream() throws IOException {
+        @Override
+        public OutputStream getOutputStream() throws IOException {
             OutputStreamRequestBody requestBody = (OutputStreamRequestBody) buildCall().request().body();
             if (requestBody == null) {
                 throw new ProtocolException("method does not support a request body: " + method);
@@ -461,7 +489,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             return requestBody.outputStream;
         }
 
-        @Override public Permission getPermission() {
+        @Override
+        public Permission getPermission() {
             URL url = getURL();
             String hostname = url.getHost();
             int hostPort = url.getPort() != -1
@@ -475,38 +504,45 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             return new SocketPermission(hostname + ":" + hostPort, "connect, resolve");
         }
 
-        @Override public String getRequestProperty(String field) {
+        @Override
+        public String getRequestProperty(String field) {
             if (field == null) return null;
             return requestHeaders.get(field);
         }
 
-        @Override public void setConnectTimeout(int timeoutMillis) {
+        @Override
+        public void setConnectTimeout(int timeoutMillis) {
             client = client.newBuilder()
                     .connectTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
                     .build();
         }
 
-        @Override public void setInstanceFollowRedirects(boolean followRedirects) {
+        @Override
+        public void setInstanceFollowRedirects(boolean followRedirects) {
             client = client.newBuilder()
                     .followRedirects(followRedirects)
                     .build();
         }
 
-        @Override public boolean getInstanceFollowRedirects() {
+        @Override
+        public boolean getInstanceFollowRedirects() {
             return client.followRedirects();
         }
 
-        @Override public int getConnectTimeout() {
+        @Override
+        public int getConnectTimeout() {
             return client.connectTimeoutMillis();
         }
 
-        @Override public void setReadTimeout(int timeoutMillis) {
+        @Override
+        public void setReadTimeout(int timeoutMillis) {
             client = client.newBuilder()
                     .readTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
                     .build();
         }
 
-        @Override public int getReadTimeout() {
+        @Override
+        public int getReadTimeout() {
             return client.readTimeoutMillis();
         }
 
@@ -627,21 +663,25 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             throw new AssertionError();
         }
 
-        @Override public boolean usingProxy() {
+        @Override
+        public boolean usingProxy() {
             if (proxy != null) return true;
             Proxy clientProxy = client.proxy();
             return clientProxy != null && clientProxy.type() != Proxy.Type.DIRECT;
         }
 
-        @Override public String getResponseMessage() throws IOException {
+        @Override
+        public String getResponseMessage() throws IOException {
             return getResponse(true).message();
         }
 
-        @Override public int getResponseCode() throws IOException {
+        @Override
+        public int getResponseCode() throws IOException {
             return getResponse(true).code();
         }
 
-        @Override public void setRequestProperty(String field, String newValue) {
+        @Override
+        public void setRequestProperty(String field, String newValue) {
             if (connected) {
                 throw new IllegalStateException("Cannot set request property after connection is made");
             }
@@ -655,7 +695,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             requestHeaders.set(field, newValue);
         }
 
-        @Override public void setIfModifiedSince(long newValue) {
+        @Override
+        public void setIfModifiedSince(long newValue) {
             super.setIfModifiedSince(newValue);
             if (ifModifiedSince != 0) {
                 requestHeaders.set("If-Modified-Since", format(new Date(ifModifiedSince)));
@@ -664,7 +705,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             }
         }
 
-        @Override public void addRequestProperty(String field, String value) {
+        @Override
+        public void addRequestProperty(String field, String value) {
             if (connected) {
                 throw new IllegalStateException("Cannot add request property after connection is made");
             }
@@ -678,18 +720,21 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             requestHeaders.add(field, value);
         }
 
-        @Override public void setRequestMethod(String method) throws ProtocolException {
+        @Override
+        public void setRequestMethod(String method) throws ProtocolException {
             if (!METHODS.contains(method)) {
                 throw new ProtocolException("Expected one of " + METHODS + " but was " + method);
             }
             this.method = method;
         }
 
-        @Override public void setFixedLengthStreamingMode(int contentLength) {
+        @Override
+        public void setFixedLengthStreamingMode(int contentLength) {
             setFixedLengthStreamingMode((long) contentLength);
         }
 
-        @Override public void setFixedLengthStreamingMode(long contentLength) {
+        @Override
+        public void setFixedLengthStreamingMode(long contentLength) {
             if (super.connected) throw new IllegalStateException("Already connected");
             if (chunkLength > 0) throw new IllegalStateException("Already in chunked mode");
             if (contentLength < 0) throw new IllegalArgumentException("contentLength < 0");
@@ -697,14 +742,16 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             super.fixedContentLength = (int) Math.min(contentLength, Integer.MAX_VALUE);
         }
 
-        @Override public void onFailure(Call call, IOException e) {
+        @Override
+        public void onFailure(Call call, IOException e) {
             synchronized (lock) {
                 this.callFailure = (e instanceof UnexpectedException) ? e.getCause() : e;
                 lock.notifyAll();
             }
         }
 
-        @Override public void onResponse(Call call, Response response) {
+        @Override
+        public void onResponse(Call call, Response response) {
             synchronized (lock) {
                 this.response = response;
                 this.handshake = response.handshake();
@@ -724,7 +771,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
                 }
             }
 
-            @Override public Response intercept(Chain chain) throws IOException {
+            @Override
+            public Response intercept(Chain chain) throws IOException {
                 Request request = chain.request();
 
                 synchronized (lock) {
@@ -776,11 +824,13 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             this.outputStream = new OutputStream() {
                 private long bytesReceived;
 
-                @Override public void write(int b) throws IOException {
-                    write(new byte[] {(byte) b}, 0, 1);
+                @Override
+                public void write(int b) throws IOException {
+                    write(new byte[]{(byte) b}, 0, 1);
                 }
 
-                @Override public void write(byte[] source, int offset, int byteCount) throws IOException {
+                @Override
+                public void write(byte[] source, int offset, int byteCount) throws IOException {
                     if (closed) throw new IOException("closed"); // Not IllegalStateException!
 
                     if (expectedContentLength != -1L && bytesReceived + byteCount > expectedContentLength) {
@@ -796,12 +846,14 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
                     }
                 }
 
-                @Override public void flush() throws IOException {
+                @Override
+                public void flush() throws IOException {
                     if (closed) return; // Weird, but consistent with historical behavior.
                     sink.flush();
                 }
 
-                @Override public void close() throws IOException {
+                @Override
+                public void close() throws IOException {
                     closed = true;
 
                     if (expectedContentLength != -1L && bytesReceived < expectedContentLength) {
@@ -814,11 +866,13 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             };
         }
 
-        @Override public long contentLength() {
+        @Override
+        public long contentLength() {
             return expectedContentLength;
         }
 
-        @Override public final MediaType contentType() {
+        @Override
+        public final MediaType contentType() {
             return null; // Let the caller provide this in a regular header.
         }
 
@@ -835,11 +889,13 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             initOutputStream(buffer, expectedContentLength);
         }
 
-        @Override public long contentLength() {
+        @Override
+        public long contentLength() {
             return contentLength;
         }
 
-        @Override public Request prepareToSendRequest(Request request) throws IOException {
+        @Override
+        public Request prepareToSendRequest(Request request) throws IOException {
             if (request.header("Content-Length") != null) return request;
 
             outputStream.close();
@@ -850,7 +906,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
                     .build();
         }
 
-        @Override public void writeTo(BufferedSink sink) {
+        @Override
+        public void writeTo(BufferedSink sink) {
             buffer.copyTo(sink.buffer(), 0, buffer.size());
         }
     }
@@ -862,11 +919,13 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             initOutputStream(Okio.buffer(pipe.sink()), expectedContentLength);
         }
 
-        @Override public boolean isOneShot() {
+        @Override
+        public boolean isOneShot() {
             return true;
         }
 
-        @Override public void writeTo(BufferedSink sink) throws IOException {
+        @Override
+        public void writeTo(BufferedSink sink) throws IOException {
             Buffer buffer = new Buffer();
             while (pipe.source().read(buffer, 8192) != -1L) {
                 sink.write(buffer, buffer.size());
@@ -884,260 +943,334 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
 
         protected abstract Handshake handshake();
 
-        @Override public abstract void setHostnameVerifier(HostnameVerifier hostnameVerifier);
+        @Override
+        public abstract void setHostnameVerifier(HostnameVerifier hostnameVerifier);
 
-        @Override public abstract HostnameVerifier getHostnameVerifier();
+        @Override
+        public abstract HostnameVerifier getHostnameVerifier();
 
-        @Override public abstract void setSSLSocketFactory(SSLSocketFactory sslSocketFactory);
+        @Override
+        public abstract void setSSLSocketFactory(SSLSocketFactory sslSocketFactory);
 
-        @Override public abstract SSLSocketFactory getSSLSocketFactory();
+        @Override
+        public abstract SSLSocketFactory getSSLSocketFactory();
 
-        @Override public String getCipherSuite() {
+        @Override
+        public String getCipherSuite() {
             Handshake handshake = handshake();
             return handshake != null ? handshake.cipherSuite().javaName() : null;
         }
 
-        @Override public Certificate[] getLocalCertificates() {
+        @Override
+        public Certificate[] getLocalCertificates() {
             Handshake handshake = handshake();
             if (handshake == null) return null;
             List<Certificate> result = handshake.localCertificates();
             return !result.isEmpty() ? result.toArray(new Certificate[result.size()]) : null;
         }
 
-        @Override public Certificate[] getServerCertificates() {
+        @Override
+        public Certificate[] getServerCertificates() {
             Handshake handshake = handshake();
             if (handshake == null) return null;
             List<Certificate> result = handshake.peerCertificates();
             return !result.isEmpty() ? result.toArray(new Certificate[result.size()]) : null;
         }
 
-        @Override public Principal getPeerPrincipal() {
+        @Override
+        public Principal getPeerPrincipal() {
             Handshake handshake = handshake();
             return handshake != null ? handshake.peerPrincipal() : null;
         }
 
-        @Override public Principal getLocalPrincipal() {
+        @Override
+        public Principal getLocalPrincipal() {
             Handshake handshake = handshake();
             return handshake != null ? handshake.localPrincipal() : null;
         }
 
-        @Override public void connect() throws IOException {
+        @Override
+        public void connect() throws IOException {
             connected = true;
             delegate.connect();
         }
 
-        @Override public void disconnect() {
+        @Override
+        public void disconnect() {
             delegate.disconnect();
         }
 
-        @Override public InputStream getErrorStream() {
+        @Override
+        public InputStream getErrorStream() {
             return delegate.getErrorStream();
         }
 
-        @Override public String getRequestMethod() {
+        @Override
+        public String getRequestMethod() {
             return delegate.getRequestMethod();
         }
 
-        @Override public int getResponseCode() throws IOException {
+        @Override
+        public int getResponseCode() throws IOException {
             return delegate.getResponseCode();
         }
 
-        @Override public String getResponseMessage() throws IOException {
+        @Override
+        public String getResponseMessage() throws IOException {
             return delegate.getResponseMessage();
         }
 
-        @Override public void setRequestMethod(String method) throws ProtocolException {
+        @Override
+        public void setRequestMethod(String method) throws ProtocolException {
             delegate.setRequestMethod(method);
         }
 
-        @Override public boolean usingProxy() {
+        @Override
+        public boolean usingProxy() {
             return delegate.usingProxy();
         }
 
-        @Override public boolean getInstanceFollowRedirects() {
+        @Override
+        public boolean getInstanceFollowRedirects() {
             return delegate.getInstanceFollowRedirects();
         }
 
-        @Override public void setInstanceFollowRedirects(boolean followRedirects) {
+        @Override
+        public void setInstanceFollowRedirects(boolean followRedirects) {
             delegate.setInstanceFollowRedirects(followRedirects);
         }
 
-        @Override public boolean getAllowUserInteraction() {
+        @Override
+        public boolean getAllowUserInteraction() {
             return delegate.getAllowUserInteraction();
         }
 
-        @Override public Object getContent() throws IOException {
+        @Override
+        public Object getContent() throws IOException {
             return delegate.getContent();
         }
 
-        @Override public Object getContent(Class[] types) throws IOException {
+        @Override
+        public Object getContent(Class[] types) throws IOException {
             return delegate.getContent(types);
         }
 
-        @Override public String getContentEncoding() {
+        @Override
+        public String getContentEncoding() {
             return delegate.getContentEncoding();
         }
 
-        @Override public int getContentLength() {
+        @Override
+        public int getContentLength() {
             return delegate.getContentLength();
         }
 
         // Should only be invoked on Java 8+ or Android API 24+.
-        @Override public long getContentLengthLong() {
-            return delegate.getContentLengthLong();
+        @Override
+        public long getContentLengthLong() {
+            return android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N
+                    ? delegate.getContentLengthLong()
+                    : delegate.getContentLength();
         }
 
-        @Override public String getContentType() {
+        @Override
+        public String getContentType() {
             return delegate.getContentType();
         }
 
-        @Override public long getDate() {
+        @Override
+        public long getDate() {
             return delegate.getDate();
         }
 
-        @Override public boolean getDefaultUseCaches() {
+        @Override
+        public boolean getDefaultUseCaches() {
             return delegate.getDefaultUseCaches();
         }
 
-        @Override public boolean getDoInput() {
+        @Override
+        public boolean getDoInput() {
             return delegate.getDoInput();
         }
 
-        @Override public boolean getDoOutput() {
+        @Override
+        public boolean getDoOutput() {
             return delegate.getDoOutput();
         }
 
-        @Override public long getExpiration() {
+        @Override
+        public long getExpiration() {
             return delegate.getExpiration();
         }
 
-        @Override public String getHeaderField(int pos) {
+        @Override
+        public String getHeaderField(int pos) {
             return delegate.getHeaderField(pos);
         }
 
-        @Override public Map<String, List<String>> getHeaderFields() {
+        @Override
+        public Map<String, List<String>> getHeaderFields() {
             return delegate.getHeaderFields();
         }
 
-        @Override public Map<String, List<String>> getRequestProperties() {
+        @Override
+        public Map<String, List<String>> getRequestProperties() {
             return delegate.getRequestProperties();
         }
 
-        @Override public void addRequestProperty(String field, String newValue) {
+        @Override
+        public void addRequestProperty(String field, String newValue) {
             delegate.addRequestProperty(field, newValue);
         }
 
-        @Override public String getHeaderField(String key) {
+        @Override
+        public String getHeaderField(String key) {
             return delegate.getHeaderField(key);
         }
 
         // Should only be invoked on Java 8+ or Android API 24+.
-        @Override public long getHeaderFieldLong(String field, long defaultValue) {
-            return delegate.getHeaderFieldLong(field, defaultValue);
+        @Override
+        public long getHeaderFieldLong(String field, long defaultValue) {
+            if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                return delegate.getHeaderFieldLong(field, defaultValue);
+            }
+
+            try {
+                final String longStr = delegate.getHeaderField(field);
+                return Long.parseLong(longStr);
+            } catch (Exception e) {
+                return defaultValue;
+            }
         }
 
-        @Override public long getHeaderFieldDate(String field, long defaultValue) {
+        @Override
+        public long getHeaderFieldDate(String field, long defaultValue) {
             return delegate.getHeaderFieldDate(field, defaultValue);
         }
 
-        @Override public int getHeaderFieldInt(String field, int defaultValue) {
+        @Override
+        public int getHeaderFieldInt(String field, int defaultValue) {
             return delegate.getHeaderFieldInt(field, defaultValue);
         }
 
-        @Override public String getHeaderFieldKey(int position) {
+        @Override
+        public String getHeaderFieldKey(int position) {
             return delegate.getHeaderFieldKey(position);
         }
 
-        @Override public long getIfModifiedSince() {
+        @Override
+        public long getIfModifiedSince() {
             return delegate.getIfModifiedSince();
         }
 
-        @Override public InputStream getInputStream() throws IOException {
+        @Override
+        public InputStream getInputStream() throws IOException {
             return delegate.getInputStream();
         }
 
-        @Override public long getLastModified() {
+        @Override
+        public long getLastModified() {
             return delegate.getLastModified();
         }
 
-        @Override public OutputStream getOutputStream() throws IOException {
+        @Override
+        public OutputStream getOutputStream() throws IOException {
             return delegate.getOutputStream();
         }
 
-        @Override public Permission getPermission() throws IOException {
+        @Override
+        public Permission getPermission() throws IOException {
             return delegate.getPermission();
         }
 
-        @Override public String getRequestProperty(String field) {
+        @Override
+        public String getRequestProperty(String field) {
             return delegate.getRequestProperty(field);
         }
 
-        @Override public URL getURL() {
+        @Override
+        public URL getURL() {
             return delegate.getURL();
         }
 
-        @Override public boolean getUseCaches() {
+        @Override
+        public boolean getUseCaches() {
             return delegate.getUseCaches();
         }
 
-        @Override public void setAllowUserInteraction(boolean newValue) {
+        @Override
+        public void setAllowUserInteraction(boolean newValue) {
             delegate.setAllowUserInteraction(newValue);
         }
 
-        @Override public void setDefaultUseCaches(boolean newValue) {
+        @Override
+        public void setDefaultUseCaches(boolean newValue) {
             delegate.setDefaultUseCaches(newValue);
         }
 
-        @Override public void setDoInput(boolean newValue) {
+        @Override
+        public void setDoInput(boolean newValue) {
             delegate.setDoInput(newValue);
         }
 
-        @Override public void setDoOutput(boolean newValue) {
+        @Override
+        public void setDoOutput(boolean newValue) {
             delegate.setDoOutput(newValue);
         }
 
         // Should only be invoked on Java 8+ or Android API 24+.
-        @Override public void setFixedLengthStreamingMode(long contentLength) {
+        @Override
+        public void setFixedLengthStreamingMode(long contentLength) {
             delegate.setFixedLengthStreamingMode(contentLength);
         }
 
-        @Override public void setIfModifiedSince(long newValue) {
+        @Override
+        public void setIfModifiedSince(long newValue) {
             delegate.setIfModifiedSince(newValue);
         }
 
-        @Override public void setRequestProperty(String field, String newValue) {
+        @Override
+        public void setRequestProperty(String field, String newValue) {
             delegate.setRequestProperty(field, newValue);
         }
 
-        @Override public void setUseCaches(boolean newValue) {
+        @Override
+        public void setUseCaches(boolean newValue) {
             delegate.setUseCaches(newValue);
         }
 
-        @Override public void setConnectTimeout(int timeoutMillis) {
+        @Override
+        public void setConnectTimeout(int timeoutMillis) {
             delegate.setConnectTimeout(timeoutMillis);
         }
 
-        @Override public int getConnectTimeout() {
+        @Override
+        public int getConnectTimeout() {
             return delegate.getConnectTimeout();
         }
 
-        @Override public void setReadTimeout(int timeoutMillis) {
+        @Override
+        public void setReadTimeout(int timeoutMillis) {
             delegate.setReadTimeout(timeoutMillis);
         }
 
-        @Override public int getReadTimeout() {
+        @Override
+        public int getReadTimeout() {
             return delegate.getReadTimeout();
         }
 
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return delegate.toString();
         }
 
-        @Override public void setFixedLengthStreamingMode(int contentLength) {
+        @Override
+        public void setFixedLengthStreamingMode(int contentLength) {
             delegate.setFixedLengthStreamingMode(contentLength);
         }
 
-        @Override public void setChunkedStreamingMode(int chunkLength) {
+        @Override
+        public void setChunkedStreamingMode(int chunkLength) {
             delegate.setChunkedStreamingMode(chunkLength);
         }
     }
@@ -1154,7 +1287,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             this.delegate = delegate;
         }
 
-        @Override protected Handshake handshake() {
+        @Override
+        protected Handshake handshake() {
             if (delegate.call == null) {
                 throw new IllegalStateException("Connection has not yet been established");
             }
@@ -1162,17 +1296,20 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
             return delegate.handshake;
         }
 
-        @Override public void setHostnameVerifier(HostnameVerifier hostnameVerifier) {
+        @Override
+        public void setHostnameVerifier(HostnameVerifier hostnameVerifier) {
             delegate.client = delegate.client.newBuilder()
                     .hostnameVerifier(hostnameVerifier)
                     .build();
         }
 
-        @Override public HostnameVerifier getHostnameVerifier() {
+        @Override
+        public HostnameVerifier getHostnameVerifier() {
             return delegate.client.hostnameVerifier();
         }
 
-        @Override public void setSSLSocketFactory(SSLSocketFactory sslSocketFactory) {
+        @Override
+        public void setSSLSocketFactory(SSLSocketFactory sslSocketFactory) {
             if (sslSocketFactory == null) {
                 throw new IllegalArgumentException("sslSocketFactory == null");
             }
@@ -1182,7 +1319,8 @@ public final class ObsoleteUrlFactory implements URLStreamHandlerFactory, Clonea
                     .build();
         }
 
-        @Override public SSLSocketFactory getSSLSocketFactory() {
+        @Override
+        public SSLSocketFactory getSSLSocketFactory() {
             return delegate.client.sslSocketFactory();
         }
     }
